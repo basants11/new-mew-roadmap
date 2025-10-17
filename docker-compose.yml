@@ -1,0 +1,131 @@
+version: '3.8'
+
+services:
+  # Production service
+  app:
+    build:
+      context: .
+      target: production
+    container_name: kilo-code-microservice
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      # Database
+      - DATABASE_URL=${DATABASE_URL:-postgresql://user:password@db:5432/kilo_code_db}
+      # JWT
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
+      # Rate Limiting
+      - RATE_LIMIT_MAX=${RATE_LIMIT_MAX:-100}
+      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-900000}
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      # OpenTelemetry
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-kilo-code-microservice}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      # Prometheus
+      - PROMETHEUS_METRICS_PORT=${PROMETHEUS_METRICS_PORT:-9090}
+      # OAuth2 (optional)
+      - OAUTH2_GOOGLE_CLIENT_ID=${OAUTH2_GOOGLE_CLIENT_ID}
+      - OAUTH2_GOOGLE_CLIENT_SECRET=${OAUTH2_GOOGLE_CLIENT_SECRET}
+      - OAUTH2_GOOGLE_REDIRECT_URI=${OAUTH2_GOOGLE_REDIRECT_URI}
+      # AI Services (optional)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - STABILITY_AI_API_KEY=${STABILITY_AI_API_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - kilo-code-network
+
+  # PostgreSQL database
+  db:
+    image: postgres:15-alpine
+    container_name: kilo-code-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=kilo_code_db
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./prisma/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d kilo_code_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kilo-code-network
+
+  # Development service with hot reload
+  app-dev:
+    build:
+      context: .
+      target: builder
+    container_name: kilo-code-microservice-dev
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - HOST=0.0.0.0
+      # Database
+      - DATABASE_URL=${DATABASE_URL:-postgresql://user:password@db:5432/kilo_code_db}
+      # JWT
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-key}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
+      # OpenTelemetry
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME:-kilo-code-microservice-dev}
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/dist
+    depends_on:
+      db:
+        condition: service_healthy
+    command: npm run dev
+    networks:
+      - kilo-code-network
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: kilo-code-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - kilo-code-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  kilo-code-network:
+    driver: bridge
