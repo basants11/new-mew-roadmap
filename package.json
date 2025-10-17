@@ -42,7 +42,7 @@
     "@fastify/auth": "^4.4.0",
     "@fastify/cors": "^8.3.0",
     "@fastify/helmet": "^11.1.1",
-    "@fastify/jwt": "^7.2.0",
+    "@fastify/jwt": "^10.0.0",
     "@fastify/rate-limit": "^8.0.3",
     "@fastify/swagger": "^8.10.1",
     "@fastify/swagger-ui": "^1.9.3",
@@ -74,7 +74,7 @@
     "prettier": "^3.0.3",
     "prisma": "^5.5.2",
     "supertest": "^6.3.3",
-    "tsx": "^3.14.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.2.2"
   }
 }
